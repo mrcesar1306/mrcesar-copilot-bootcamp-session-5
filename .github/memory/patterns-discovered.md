@@ -121,23 +121,108 @@ todo.completed = !todo.completed;
 
 ## Your Patterns
 
-*Add new patterns below as you discover them during development*
+### REST API Validation Pattern
 
-### [New Pattern Name]
+**Context**: POST/PUT endpoints that accept user input for creating or updating resources
 
-**Context**: [When does this apply?]
+**Problem**: Invalid or missing data can cause runtime errors or inconsistent state
 
-**Problem**: [What issue does this solve?]
-
-**Solution**: [How to implement?]
+**Solution**: Validate input early in the request handler and return 400 Bad Request with descriptive error messages
 
 **Example**:
 ```javascript
-// Your example here
+// ✅ Proper validation pattern
+app.post('/api/todos', (req, res) => {
+  const { title } = req.body;
+
+  // Validate: check for missing and empty
+  if (!title || title.trim() === '') {
+    return res.status(400).json({ error: 'Title is required' });
+  }
+
+  // Proceed with valid data
+  const newTodo = { id: nextId++, title, completed: false };
+  todos.push(newTodo);
+  res.status(201).json(newTodo);
+});
 ```
 
 **Related Files**: 
-- [List files]
+- `packages/backend/src/app.js` (POST /api/todos)
 
 **Notes**: 
-- [Additional context]
+- Use early returns to avoid nested if statements
+- Check for both `!value` (null/undefined) and `.trim() === ''` (empty strings)
+- Return 400 status code for client errors
+- Include descriptive error messages for debugging
+
+---
+
+### 404 Handling Pattern
+
+**Context**: API endpoints that operate on specific resources by ID (PUT, PATCH, DELETE)
+
+**Problem**: Operating on non-existent resources can cause undefined errors or incorrect responses
+
+**Solution**: Always check if resource exists before operating on it, return 404 if not found
+
+**Example**:
+```javascript
+// ✅ Proper 404 handling
+app.put('/api/todos/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const todo = todos.find((t) => t.id === id);
+
+  if (!todo) {
+    return res.status(404).json({ error: 'Todo not found' });
+  }
+
+  // Proceed with found resource
+  todo.title = req.body.title;
+  res.json(todo);
+});
+```
+
+**Related Files**: 
+- `packages/backend/src/app.js` (PUT, PATCH, DELETE endpoints)
+
+**Notes**: 
+- Use early return pattern for clarity
+- Consistent error message format across endpoints
+- Parse ID to integer when comparing with numeric IDs
+- Return descriptive error messages
+
+---
+
+### Array Removal Pattern
+
+**Context**: DELETE endpoints that need to remove items from in-memory arrays
+
+**Problem**: Finding and removing items from arrays requires correct approach to avoid errors
+
+**Solution**: Use `findIndex()` to locate item, check if found, then use `splice()` to remove
+
+**Example**:
+```javascript
+// ✅ Safe array removal
+app.delete('/api/todos/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const todoIndex = todos.findIndex((t) => t.id === id);
+
+  if (todoIndex === -1) {
+    return res.status(404).json({ error: 'Todo not found' });
+  }
+
+  const deletedTodo = todos.splice(todoIndex, 1)[0];
+  res.json(deletedTodo);
+});
+```
+
+**Related Files**: 
+- `packages/backend/src/app.js` (DELETE /api/todos/:id)
+
+**Notes**: 
+- `findIndex()` returns -1 when not found (not undefined)
+- `splice()` modifies the original array and returns removed elements
+- Can return the deleted item for confirmation
+- Alternative: use `filter()` to create new array without the item
